@@ -165,28 +165,32 @@ func (ctrl *Controller) Get(url string, done func()) {
 	since := time.Since(start)
 
 	ctrl.Json(data)
-	ctrl.Write()
 	ctrl.Log(*res, since)
 	ctrl.Buffer.Reset()
 
 }
 
-func (ctrl *Controller) Json(data []byte) {
-	if err := json.Indent(ctrl.Buffer, data, "", " "); err != nil {
-		log.Fatal(err.Error())
+func (ctrl *Controller) Json(data []byte) (int, error) {
+	buf := new(bytes.Buffer)
+	if len(data) == 0 {
+		return 0, fmt.Errorf("no data to write: %d", len(data))
 	}
-}
+	if err := json.Indent(buf, data, "", " "); err != nil {
+		return 0, err
+	}
 
-func (ctrl *Controller) Write() {
 	tmp, err := ioutil.TempFile(ctrl.Config.Outdir, fmt.Sprintf("%s-*.json", epName(*ctrl.Url)))
 	if err != nil {
-		log.Fatal(err.Error())
+		return 0, err
 	}
 	defer tmp.Close()
 
-	if _, err := tmp.Write(ctrl.Buffer.Bytes()); err != nil {
-		log.Fatal(err.Error())
+	if _, err := tmp.Write(buf.Bytes()); err != nil {
+		return 0, err
 	}
+
+	return len(data), nil
+
 }
 
 func (ctrl *Controller) Log(res http.Response, duration time.Duration) {
