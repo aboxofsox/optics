@@ -1,2 +1,4 @@
 tests
 optics.toml
+bin
+build.py

@@ -16,5 +16,5 @@ do
         output_name+='.exe'
     fi
 
-    env GOOS=$GOOS GOARCH=$GOARCH go build -o $output_name $package
+    env GOOS=$GOOS GOARCH=$GOARCH && go build -o $output_name $package
 done

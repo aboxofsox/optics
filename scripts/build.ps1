@@ -32,5 +32,15 @@ ForEach ($Platform in $Platforms) {
     cmd.exe /c "go build -o $OutName $Package"
 }
 
+If ((Test-Path "./bin/optics.sum") -ne $True) {
+    New-Item -Path "./bin/optics.sum" -ItemType "file"
+}
+$BinContent = Get-ChildItem -Path "./bin"
+For ($i = 0; $i -lt $BinContent.Length; $i++) {
+    $Sum = Get-FileHash $BinContent[$i] | Select-Object -Property Hash -ExpandProperty Hash
+    $Name = $BinContent[$i].Name
+    Add-Content -Path "./bin/optics.sum" -Value "$Name : $Sum"
+}
+
 Write-Host "Build complete ✅" -ForegroundColor Green
 

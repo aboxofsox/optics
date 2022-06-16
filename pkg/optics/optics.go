@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/aboxofsox/optics/pkg/colors"
 	"github.com/joho/godotenv"
 )
 
@@ -143,6 +144,8 @@ func (ctrl *Controller) Init() {
 
 func (ctrl *Controller) Get(url string, done func()) {
 	defer done()
+	var resMsg string
+	var resStatusCode string
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -157,6 +160,14 @@ func (ctrl *Controller) Get(url string, done func()) {
 
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusNotFound {
+		resStatusCode = colors.Red(res.StatusCode)
+		resMsg = colors.Red(StatusCodes[res.StatusCode])
+	} else {
+		resStatusCode = colors.Green(res.StatusCode)
+		resMsg = colors.Green(StatusCodes[res.StatusCode])
+	}
+
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -166,6 +177,12 @@ func (ctrl *Controller) Get(url string, done func()) {
 
 	ctrl.Json(data)
 	ctrl.Log(*res, since)
+	fmt.Printf(
+		"%s: %s %s - %v seconds\n",
+		colors.Gray(url),
+		resStatusCode,
+		resMsg,
+		colors.Cyan(since.Seconds()))
 	ctrl.Buffer.Reset()
 
 }
