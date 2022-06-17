@@ -34,7 +34,7 @@ If ((Test-Path -Path $Temp) -ne $True) {
 }
 
 # Copy the temporary file to C:\ProgramFiles\optics
-Move-Item -Path $Temp -Destination "$InstallPath"
+Move-Item -Path $Temp -Destination $InstallPath
 Rename-Item -Path "$InstallPath\\$($Temp.Name)" -NewName "$InstallPath\\optics.exe"
 
 # Add the directory to environment path
