@@ -1,10 +1,13 @@
-//go:build linux || darwin
-// +build linux darwin
+//go:build windows
+// +build windows
 
 package colors
 
 import (
 	"fmt"
+	"os"
+	"runtime"
+	"syscall"
 )
 
 var Colors = map[string]string{
@@ -18,6 +21,20 @@ var Colors = map[string]string{
 	"white":       "\u001b[37m",
 	"reset":       "\u001b[0m",
 	"brightblack": "\u001b[30;1m",
+}
+
+func init() {
+	if runtime.GOOS == "windows" {
+		h := syscall.Handle(os.Stdout.Fd())
+		k32dll := syscall.NewLazyDLL("kernel32.dll")
+		mode := k32dll.NewProc("SetConsoleMode")
+
+		if _, _, err := mode.Call(uintptr(h), 0x001|0x002|0x004); err != nil && err.Error() != "The operation completed successfully." {
+			for k := range Colors {
+				Colors[k] = ""
+			}
+		}
+	}
 }
 
 func Red(msg any) string    { return fmt.Sprintf("%s%v%s", Colors["red"], msg, Colors["reset"]) }

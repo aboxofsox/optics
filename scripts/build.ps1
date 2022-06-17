@@ -4,9 +4,13 @@ $PackageName = $PackageSplit[-1]
 
 $Platforms = "windows/amd64", "darwin/amd64", "linux/amd64"
 
-ForEach ($Platform in $Platforms) {
+$CurrentItem = 0
+$PercentComplete = 0
+
+For ($i = 0; $i -lt $Platforms.Length; $i++) {
+    Write-Progress -Activity 'Building Optics' -Status "$PercentComplete% Complete:" -PercentComplete $PercentComplete 
     $Emoji = "🖥️"
-    $PlatformSplit = $Platform.Split("/")
+    $PlatformSplit = $Platforms[$i].Split("/")
     If ($PlatformSplit[0] -eq "windows") {
         $Emoji = "🪟"
     }
@@ -17,7 +21,7 @@ ForEach ($Platform in $Platforms) {
         $Emoji = "🐧"
     }
 
-    Write-Host "Building for $Platform $Emoji" -ForegroundColor Cyan
+    Write-Host "Building for $($Platforms[$i]) $Emoji" -ForegroundColor Cyan
     $GOOS = $PlatformSplit[0]
     $GOARCH = $PlatformSplit[1]
     $Env:GOOS = $GOOS
@@ -27,20 +31,23 @@ ForEach ($Platform in $Platforms) {
 
     If ($GOOS -eq "windows") {
         $OutName += ".exe"
+        cmd.exe /c "go build -tags=windows -o $OutName $Package"
+    } Else {
+        cmd.exe /c "go build -tags=lnx,dar -o $OutName $Package"
     }
-
-    cmd.exe /c "go build -o $OutName $Package"
-}
-
-If ((Test-Path "./bin/optics.sum") -ne $True) {
-    New-Item -Path "./bin/optics.sum" -ItemType "file"
-}
-$BinContent = Get-ChildItem -Path "./bin"
-For ($i = 0; $i -lt $BinContent.Length; $i++) {
-    $Sum = Get-FileHash $BinContent[$i] | Select-Object -Property Hash -ExpandProperty Hash
-    $Name = $BinContent[$i].Name
-    Add-Content -Path "./bin/optics.sum" -Value "$Name : $Sum"
-}
+    $CurrentItem++
+    $PercentComplete = [int](($CurrentItem / $Platforms.Length) * 100)
+} 
 
 Write-Host "Build complete ✅" -ForegroundColor Green
 
+Write-Host ""
+$BinContent = Get-ChildItem -Path "./bin"
+For ($i = 0; $i -lt $BinContent.Length; $i++) {
+    $Sum = Get-FileHash $BinContent[$i] | Select-Object -Property Hash -ExpandProperty Hash
+    $Obj = @{}
+    $Obj[$BinContent[$i].Name] = $Sum
+    $Obj
+    
+}
+Write-Host ""

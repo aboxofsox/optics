@@ -14,7 +14,8 @@ do
 
     if [ $GOOS="windows"]; then
         output_name+='.exe'
+        env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=windows -o $output_name $package
     fi
 
-    env GOOS=$GOOS GOARCH=$GOARCH && go build -o $output_name $package
+    env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=linux,darwin -o $output_name $package
 done
