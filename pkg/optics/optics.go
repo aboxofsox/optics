@@ -51,6 +51,7 @@ type Controller struct {
 	Data         []byte
 }
 
+// Create a new HTTP client controller
 func New() *Controller {
 	w := &strings.Builder{}
 	var (
@@ -106,6 +107,7 @@ func New() *Controller {
 
 }
 
+// Initialize the HTTP client controller.
 func (ctrl *Controller) Init() {
 	var wg sync.WaitGroup
 	ctrl.Url = &url.URL{
@@ -142,6 +144,15 @@ func (ctrl *Controller) Init() {
 	}
 }
 
+/*
+Do an HTTP GET request and process the data.
+
+The response is saved as a JSON file and
+the results of the response are logged
+to a log file in the same directory.
+The log file will always be appended to
+if it already exists.
+*/
 func (ctrl *Controller) Get(url string, done func()) {
 	defer done()
 	var resMsg string
@@ -187,6 +198,7 @@ func (ctrl *Controller) Get(url string, done func()) {
 
 }
 
+// Write the response to a JSON file.
 func (ctrl *Controller) Json(data []byte) (int, error) {
 	buf := new(bytes.Buffer)
 	if len(data) == 0 {
@@ -210,6 +222,7 @@ func (ctrl *Controller) Json(data []byte) (int, error) {
 
 }
 
+// Handle the log
 func (ctrl *Controller) Log(res http.Response, duration time.Duration) {
 	headers := map[string][]string{}
 	for k, v := range res.Request.Header {

@@ -1,6 +1,6 @@
 # Simple Windows install script
 
-$InstallPath = "C:\\Users\\$($Env:USERNAME)\\optics"
+$InstallPath = "C:\Users\$($Env:USERNAME)\optics"
 
 If ((Test-Path -Path $InstallPath) -ne $True) {
     New-Item -Path $InstallPath -Name 'optics' -ItemType 'directory' | Out-Null
@@ -19,12 +19,27 @@ If ((Test-Path -Path $Temp) -ne $True) {
     Exit
 }
 
-# Copy the temporary file to C:\ProgramFiles\optics
+# Copy the temporary file to C:\Users\{username}\optics
 Move-Item -Path $Temp -Destination $InstallPath
-Rename-Item -Path "$InstallPath\\$($Temp.Name)" -NewName "$InstallPath\\optics.exe"
+Rename-Item -Path "$InstallPath\$($Temp.Name)" -NewName "$InstallPath\optics.exe"
 
-# Add the directory to environment path
+# Add the directory to environment path, permanently
+$RegPath = 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 $Env:PATH += ";$InstallPath"
+$OriginalPath = (Get-ItemProperty -Path $RegPath -Name PATH).Path
+$AddPath = "$OriginalPath;$InstallPath"
+Set-ItemProperty -Path $RegPath -Name PATH -Value $AddPath
+
+# Validate environment path
+$TestEnvPath = (Get-ItemProperty -Path $RegPath -Name Path).Path
+$TestEnvPathSplit = $TestEnvPath.Split(';')
+If (!($TestEnvPathSplit.Contains($IntallPath))) {
+    Write-Host 'Path change was not successful' -ForegroundColor Red
+    Exit
+}
+
+
+
 
 Write-Host 'Installation complete ✅' -ForegroundColor Green
 Write-Host "Type 'optics init' to get started." -Foreground Gray

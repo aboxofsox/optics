@@ -78,6 +78,7 @@ var StatusCodes = map[int]string{
 	511: "Network Authentication Required",
 }
 
+// Check working directory for .env files.
 func envExists() (exists bool) {
 	filepath.WalkDir(".", func(p string, d fs.DirEntry, err error) error {
 		if filepath.Ext(p) == "env" {
@@ -90,6 +91,7 @@ func envExists() (exists bool) {
 	return
 }
 
+// Get a short-name for the URL.
 func epName(url url.URL) string {
 	str := strings.Split(url.String(), "/")
 	s := str[len(str)-1]

@@ -23,6 +23,7 @@ var Colors = map[string]string{
 	"brightblack": "\u001b[30;1m",
 }
 
+// Handle Virtual Termminal mode if on Windows
 func init() {
 	if runtime.GOOS == "windows" {
 		h := syscall.Handle(os.Stdout.Fd())
@@ -37,6 +38,7 @@ func init() {
 	}
 }
 
+// Color functions.
 func Red(msg any) string    { return fmt.Sprintf("%s%v%s", Colors["red"], msg, Colors["reset"]) }
 func Green(msg any) string  { return fmt.Sprintf("%s%v%s", Colors["green"], msg, Colors["reset"]) }
 func Yellow(msg any) string { return fmt.Sprintf("%s%v%s", Colors["yellow"], msg, Colors["reset"]) }
