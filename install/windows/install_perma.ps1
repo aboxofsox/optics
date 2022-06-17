@@ -1,6 +1,9 @@
 # Script to install Optics
 # Because it makes a permanent env path change, it requies elevation.
 
+# Set the version
+$Version = '1.1.0'
+
 # Check if user is admin.
 # This is required for the permanent path change.
 $IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
@@ -21,7 +24,7 @@ If ((Test-Path -Path $InstallPath) -ne $True) {
 $Temp = New-TemporaryFile
 
 # Download the latest build of Optics for Windows
-Invoke-WebRequest -Uri "https://github.com/aboxofsox/optics/releases/download/1.1.0/optics-windows-amd64.exe" -OutFile $Temp
+Invoke-WebRequest -Uri "https://github.com/aboxofsox/optics/releases/download/$Version/optics-windows-amd64.exe" -OutFile $Temp
 
 # Validate that the file exists.
 If ($Temp.Exists -ne $True) {
