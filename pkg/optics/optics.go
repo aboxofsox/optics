@@ -3,8 +3,10 @@ package optics
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -53,51 +55,32 @@ type Controller struct {
 
 // Create a new HTTP client controller
 func New() *Controller {
-	w := &strings.Builder{}
-	var (
-		envMap map[string]string
-		config *Config
-	)
+	var envMap map[string]string
 
 	if envExists() {
 		envMap, _ = godotenv.Read()
 	}
+	p := cPath(".", string(filepath.Separator), "optics.toml")
 
-	configPath := filepath.Join(".", string(filepath.Separator), "optics.toml")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatal(err.Error())
-	}
-
-	file, err := os.Open(configPath)
+	file, err := os.Open(p)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	f, _ := os.Stat(configPath)
-	if f.Size() <= 0 {
-		log.Fatal("empty config file")
-	}
-
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
+	d, err := read(file)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	tmpl, err := template.New("toml").Parse(string(data))
+	t, err := parse(d, envMap)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	tmpl.Execute(w, envMap)
-
-	if _, err := toml.Decode(w.String(), &config); err != nil {
+	dc, err := decode(t)
+	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	return &Controller{
-		Config: config,
+		Config: dc,
 		Buffer: &bytes.Buffer{},
 		Client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -105,6 +88,46 @@ func New() *Controller {
 		HttpResponse: &HttpResponse{},
 	}
 
+}
+
+func cPath(args ...string) string {
+	w := strings.Builder{}
+	for i, arg := range args {
+		if arg == "/" || arg == "\\" {
+			args[i] = string(filepath.Separator)
+		}
+		w.Write([]byte(arg))
+	}
+	return w.String()
+}
+
+func read(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %v", err)
+	}
+
+	return data, nil
+}
+
+func parse(data []byte, envMap map[string]string) (string, error) {
+	w := &strings.Builder{}
+	tmpl, err := template.New("toml").Parse(string(data))
+	if err != nil {
+		return "", fmt.Errorf("parse config: %v", err)
+	}
+
+	tmpl.Execute(w, envMap)
+
+	return w.String(), nil
+}
+
+func decode(conf string) (*Config, error) {
+	var config *Config
+	if _, err := toml.Decode(conf, &config); err != nil {
+		return nil, fmt.Errorf("decode template: %v", err)
+	}
+	return config, nil
 }
 
 // Initialize the HTTP client controller.
@@ -125,7 +148,6 @@ func (ctrl *Controller) Init() {
 
 	for i := range ctrl.Config.Endpoints {
 		wg.Add(1)
-		// buf := &bytes.Buffer{}
 
 		ctrl.Url.Path = ctrl.Config.Endpoints[i]
 
@@ -184,7 +206,7 @@ func (ctrl *Controller) Get(url string, done func()) {
 		log.Fatal(err.Error())
 	}
 
-	since := time.Since(start)
+	since := opTime(start)
 
 	ctrl.Json(data)
 	ctrl.Log(*res, since)
@@ -193,10 +215,12 @@ func (ctrl *Controller) Get(url string, done func()) {
 		colors.Gray(url),
 		resStatusCode,
 		resMsg,
-		colors.Cyan(since.Seconds()))
+		colors.Cyan(since))
 	ctrl.Buffer.Reset()
 
 }
+
+func opTime(start time.Time) float64 { return time.Since(start).Seconds() }
 
 // Write the response to a JSON file.
 func (ctrl *Controller) Json(data []byte) (int, error) {
@@ -219,11 +243,55 @@ func (ctrl *Controller) Json(data []byte) (int, error) {
 	}
 
 	return len(data), nil
+}
 
+func mkJson(data []byte) (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	if len(data) == 0 {
+		return nil, fmt.Errorf("no data to write: %d", len(data))
+	}
+	if err := json.Indent(buf, data, "", " "); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func mkTemp(p, pattern string) (*os.File, error) {
+	tmp, err := ioutil.TempFile(p, pattern)
+	if err != nil {
+		return nil, err
+	}
+	return tmp, nil
+}
+
+func writeTemp(tmp *os.File, buf bytes.Buffer) (int, error) {
+	n, err := tmp.Write(buf.Bytes())
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func writeResponse(res http.Response, duration float64) *HttpResponse {
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil
+	}
+	return &HttpResponse{
+		StatusCode:  res.StatusCode,
+		Method:      res.Request.Method,
+		Message:     StatusCodes[res.StatusCode],
+		ContentType: res.Header.Get("content-type"),
+		Headers:     res.Header,
+		Error:       errors.New("response invalid"),
+		Body:        body,
+		Time:        duration,
+	}
 }
 
 // Handle the log
-func (ctrl *Controller) Log(res http.Response, duration time.Duration) {
+func (ctrl *Controller) Log(res http.Response, duration float64) {
 	headers := map[string][]string{}
 	for k, v := range res.Request.Header {
 		headers[k] = append(headers[k], v...)
@@ -231,7 +299,7 @@ func (ctrl *Controller) Log(res http.Response, duration time.Duration) {
 
 	ctrl.HttpResponse.StatusCode = res.StatusCode
 	ctrl.HttpResponse.Method = res.Request.Method
-	ctrl.HttpResponse.Time = duration.Seconds()
+	ctrl.HttpResponse.Time = duration
 	ctrl.HttpResponse.Headers = headers
 
 	lfp := filepath.Join(".", string(filepath.Separator), ctrl.Config.Outdir, "optics.log")
@@ -251,8 +319,21 @@ func (ctrl *Controller) Log(res http.Response, duration time.Duration) {
 		timestamp,
 		res.StatusCode,
 		strings.ToUpper(StatusCodes[res.StatusCode]),
-		duration.Seconds(),
+		duration,
 	)); err != nil {
 		log.Fatal(err.Error())
 	}
+}
+
+func logWriter(p string, data []byte) (int, error) {
+	file, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, fmt.Errorf("log writer: %v", err)
+	}
+	defer file.Close()
+	n, err := file.Write(data)
+	if err != nil {
+		return 0, fmt.Errorf("write file: %v", err)
+	}
+	return n, nil
 }
