@@ -4,6 +4,10 @@ package_name=${packaeg_split[-1]}
 
 platforms=("windows/amd64", "darwin/amd64", "linux/amd64")
 
+if [! -d "./bin"]; then
+    mkdir "bin"
+fi
+
 for platform in "${platforms[@]}"
 do
     platform_split=(${platform//\//})
@@ -14,8 +18,8 @@ do
 
     if [ $GOOS="windows"]; then
         output_name+='.exe'
-        env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=windows -o $output_name $package
+        env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=windows -o './bin'+$output_name $package
     fi
 
-    env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=linux,darwin -o $output_name $package
+    env GOOS=$GOOS GOARCH=$GOARCH && go build -tag=linux,darwin -o '/bin/'+$output_name $package
 done

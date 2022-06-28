@@ -53,6 +53,8 @@ type Controller struct {
 	Data         []byte
 }
 
+const PERMS = 0770
+
 // Create a new HTTP client controller
 func New() *Controller {
 	var envMap map[string]string
@@ -139,7 +141,7 @@ func (ctrl *Controller) Init() {
 	}
 
 	if _, err := os.Stat(ctrl.Config.Outdir); os.IsNotExist(err) {
-		os.Mkdir(ctrl.Config.Outdir, 0665)
+		os.Mkdir(ctrl.Config.Outdir, PERMS)
 	}
 
 	if len(ctrl.Config.Endpoints) == 0 {
@@ -212,7 +214,7 @@ func (ctrl *Controller) Get(url string, done func()) {
 	ctrl.Log(*res, since)
 	fmt.Printf(
 		"%s: %s %s - %v seconds\n",
-		colors.Gray(url),
+		url,
 		resStatusCode,
 		resMsg,
 		colors.Cyan(since))
@@ -232,7 +234,11 @@ func (ctrl *Controller) Json(data []byte) (int, error) {
 		return 0, err
 	}
 
-	tmp, err := ioutil.TempFile(ctrl.Config.Outdir, fmt.Sprintf("%s-*.json", epName(*ctrl.Url)))
+	tmp, err := ioutil.TempFile(
+		ctrl.Config.Outdir,
+		fmt.Sprintf("%s-*.json",
+			epName(*ctrl.Url)),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -302,12 +308,23 @@ func (ctrl *Controller) Log(res http.Response, duration float64) {
 	ctrl.HttpResponse.Time = duration
 	ctrl.HttpResponse.Headers = headers
 
-	lfp := filepath.Join(".", string(filepath.Separator), ctrl.Config.Outdir, "optics.log")
+	lfp := filepath.Join(
+		".", string(filepath.Separator),
+		ctrl.Config.Outdir,
+		"optics.log",
+	)
 
 	tm := time.Now()
-	timestamp := fmt.Sprintf("%d-%02d-%02d %02d:%02d", tm.Year(), tm.Month(), tm.Day(), tm.Hour(), tm.Minute())
+	timestamp := fmt.Sprintf(
+		"%d-%02d-%02d %02d:%02d",
+		tm.Year(),
+		tm.Month(),
+		tm.Day(),
+		tm.Hour(),
+		tm.Minute(),
+	)
 
-	file, err := os.OpenFile(lfp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(lfp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, PERMS)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -326,7 +343,7 @@ func (ctrl *Controller) Log(res http.Response, duration float64) {
 }
 
 func logWriter(p string, data []byte) (int, error) {
-	file, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, PERMS)
 	if err != nil {
 		return 0, fmt.Errorf("log writer: %v", err)
 	}
