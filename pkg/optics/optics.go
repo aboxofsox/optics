@@ -5,13 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,9 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/aboxofsox/optics/pkg/colors"
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -60,83 +54,6 @@ type Controller struct {
 }
 
 const PERMS = 0770
-
-// Create a new HTTP client controller
-func New() *Controller {
-	var envMap map[string]string
-
-	if envExists() {
-		envMap, _ = godotenv.Read()
-	}
-	p := cPath(".", string(filepath.Separator), "optics.toml")
-
-	file, err := os.Open(p)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	d, err := read(file)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	t, err := parse(d, envMap)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	dc, err := decode(t)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	return &Controller{
-		Config: dc,
-		Buffer: &bytes.Buffer{},
-		Client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		HttpResponse: &HttpResponse{},
-	}
-
-}
-
-func cPath(args ...string) string {
-	w := strings.Builder{}
-	for i, arg := range args {
-		if arg == "/" || arg == "\\" {
-			args[i] = string(filepath.Separator)
-		}
-		w.Write([]byte(arg))
-	}
-	return w.String()
-}
-
-func read(r io.Reader) ([]byte, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("read file: %v", err)
-	}
-
-	return data, nil
-}
-
-func parse(data []byte, envMap map[string]string) (string, error) {
-	w := &strings.Builder{}
-	tmpl, err := template.New("toml").Parse(string(data))
-	if err != nil {
-		return "", fmt.Errorf("parse config: %v", err)
-	}
-
-	tmpl.Execute(w, envMap)
-
-	return w.String(), nil
-}
-
-func decode(conf string) (*Config, error) {
-	var config *Config
-	if _, err := toml.Decode(conf, &config); err != nil {
-		return nil, fmt.Errorf("decode template: %v", err)
-	}
-	return config, nil
-}
 
 // Initialize the HTTP client controller.
 func (ctrl *Controller) Init(options *Options) {
@@ -232,8 +149,6 @@ func (ctrl *Controller) Get(url string, done func()) {
 	ctrl.Buffer.Reset()
 
 }
-
-func opTime(start time.Time) float64 { return time.Since(start).Seconds() }
 
 // Write the response to a JSON file.
 func (ctrl *Controller) Json(data []byte) (int, error) {
@@ -351,76 +266,4 @@ func (ctrl *Controller) Log(res http.Response, duration float64) {
 	)); err != nil {
 		log.Fatal(err.Error())
 	}
-}
-
-/*
-Proxy GET requests.
-
-This function creates a temporary HTTP server using httptest.NewServer().
-*/
-func (ctrl *Controller) Proxy(origin string, done func()) {
-	defer done()
-	var resMsg string
-	var resStatusCode string
-	u, err := url.Parse(origin)
-	proxy := &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			r.URL.Scheme = u.Scheme
-			r.URL.Host = u.Host
-			r.Host = u.Host
-
-			r.URL.Path = u.Path + strings.TrimRight(r.URL.Path, "/") + "/"
-
-			r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-		},
-	}
-
-	fep := httptest.NewServer(proxy)
-	defer fep.Close()
-
-	start := time.Now()
-	res, err := http.Get(fep.URL)
-	if err != nil {
-		fmt.Printf("unable to do get request: %s\n", err.Error())
-		return
-	}
-	since := time.Since(start)
-
-	if res.StatusCode == http.StatusNotFound {
-		resStatusCode = colors.Red(res.StatusCode)
-		resMsg = colors.Red(StatusCodes[res.StatusCode])
-	} else {
-		resStatusCode = colors.Green(res.StatusCode)
-		resMsg = colors.Green(StatusCodes[res.StatusCode])
-	}
-
-	b, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Printf("unable to read response body: %s\n", err.Error())
-		return
-	}
-
-	ctrl.Json(b)
-	ctrl.Log(*res, since.Seconds())
-	fmt.Printf(
-		"[PROXIED] %s: %s %s - %v\n",
-		u.String(),
-		resStatusCode,
-		resMsg,
-		colors.Cyan(since),
-	)
-
-}
-
-func logWriter(p string, data []byte) (int, error) {
-	file, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, PERMS)
-	if err != nil {
-		return 0, fmt.Errorf("log writer: %v", err)
-	}
-	defer file.Close()
-	n, err := file.Write(data)
-	if err != nil {
-		return 0, fmt.Errorf("write file: %v", err)
-	}
-	return n, nil
 }

@@ -54,6 +54,9 @@ I chose to use TOML for a few of reasons, mostly because I'm tired of JSON confi
 ## Environment Variables
 By default, Optics will check for any `.env` files in your current working directory. If they exist, they will be loaded. Within the config file, they are defined as `{{.Key_Name}}`.
 
+## Proxy
+You can choose to use a proxy server to test your endpoints. This mostly for those who plan on using a reverse proxy in production. There are already inherent benefits of using a proxy server, but a lot of those benefits don't apply here since it's only used for testing purposes.
+
 ### Binaries
 You can find executable binaries in [releases](https://github.com/aboxofsox/optics/releases). I included two build scripts, one in PowerShell, the other BASH. If there is a specific platform you need, you can add the platform to the list like `windows/386`, or bring your own build script.
 #### Todo
