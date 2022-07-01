@@ -60,3 +60,4 @@ You can find executable binaries in [releases](https://github.com/aboxofsox/opti
 - [ ] Better response info.
 - [ ] Simple file parsing to extract URLs.
 - [ ] Terminal table layout for response information.
+- [x] Add option to use a proxy server.

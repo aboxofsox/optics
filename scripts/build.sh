@@ -6,6 +6,7 @@ platforms=("windows/amd64", "darwin/amd64", "linux/amd64")
 
 if [! -d "./bin"]; then
     mkdir "bin"
+    echo 'created bin'
 fi
 
 for platform in "${platforms[@]}"

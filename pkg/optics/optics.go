@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -42,6 +44,10 @@ type HttpResponse struct {
 	Error       error
 	Body        []byte
 	Time        float64
+}
+
+type Options struct {
+	UseProxy bool
 }
 
 type Controller struct {
@@ -133,7 +139,7 @@ func decode(conf string) (*Config, error) {
 }
 
 // Initialize the HTTP client controller.
-func (ctrl *Controller) Init() {
+func (ctrl *Controller) Init(options *Options) {
 	var wg sync.WaitGroup
 	ctrl.Url = &url.URL{
 		Scheme: ctrl.Config.Scheme,
@@ -163,7 +169,12 @@ func (ctrl *Controller) Init() {
 			ctrl.Url.RawQuery = kv.Encode()
 		}
 
-		go ctrl.Get(ctrl.Url.String(), wg.Done)
+		if options.UseProxy {
+			go ctrl.Proxy(ctrl.Url.String(), wg.Done)
+		} else {
+			go ctrl.Get(ctrl.Url.String(), wg.Done)
+		}
+
 		wg.Wait()
 	}
 }
@@ -340,6 +351,65 @@ func (ctrl *Controller) Log(res http.Response, duration float64) {
 	)); err != nil {
 		log.Fatal(err.Error())
 	}
+}
+
+/*
+Proxy GET requests.
+
+This function creates a temporary HTTP server using httptest.NewServer().
+*/
+func (ctrl *Controller) Proxy(origin string, done func()) {
+	defer done()
+	var resMsg string
+	var resStatusCode string
+	u, err := url.Parse(origin)
+	proxy := &httputil.ReverseProxy{
+		Director: func(r *http.Request) {
+			r.URL.Scheme = u.Scheme
+			r.URL.Host = u.Host
+			r.Host = u.Host
+
+			r.URL.Path = u.Path + strings.TrimRight(r.URL.Path, "/") + "/"
+
+			r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+		},
+	}
+
+	fep := httptest.NewServer(proxy)
+	defer fep.Close()
+
+	start := time.Now()
+	res, err := http.Get(fep.URL)
+	if err != nil {
+		fmt.Printf("unable to do get request: %s\n", err.Error())
+		return
+	}
+	since := time.Since(start)
+
+	if res.StatusCode == http.StatusNotFound {
+		resStatusCode = colors.Red(res.StatusCode)
+		resMsg = colors.Red(StatusCodes[res.StatusCode])
+	} else {
+		resStatusCode = colors.Green(res.StatusCode)
+		resMsg = colors.Green(StatusCodes[res.StatusCode])
+	}
+
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Printf("unable to read response body: %s\n", err.Error())
+		return
+	}
+
+	ctrl.Json(b)
+	ctrl.Log(*res, since.Seconds())
+	fmt.Printf(
+		"[PROXIED] %s: %s %s - %v\n",
+		u.String(),
+		resStatusCode,
+		resMsg,
+		colors.Cyan(since),
+	)
+
 }
 
 func logWriter(p string, data []byte) (int, error) {
