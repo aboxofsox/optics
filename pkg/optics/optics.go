@@ -10,12 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/aboxofsox/optics/pkg/colors"
+	"github.com/aboxofsox/optics/pkg/logger"
 )
 
 type Config struct {
@@ -110,6 +109,8 @@ func (ctrl *Controller) Get(url string, done func()) {
 	var resMsg string
 	var resStatusCode string
 
+	lgr := logger.New()
+
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -139,13 +140,24 @@ func (ctrl *Controller) Get(url string, done func()) {
 	since := opTime(start)
 
 	ctrl.Json(data)
-	ctrl.Log(*res, since)
+
+	li := &logger.LogItem{
+		Timestamp:         time.Now().Format(time.ANSIC),
+		Endpoint:          url,
+		StatusCode:        res.StatusCode,
+		StatusCodeMessage: StatusCodes[res.StatusCode],
+		Elapsed:           since,
+	}
+	lgr.Stash(li)
+	lgr.Write("./res/api.log")
+
 	fmt.Printf(
-		"%s: %s %s - %v seconds\n",
+		"%s: %s %s - %.2dms\n",
 		url,
 		resStatusCode,
 		resMsg,
-		colors.Cyan(since))
+		since.Milliseconds(),
+	)
 	ctrl.Buffer.Reset()
 
 }
@@ -222,48 +234,3 @@ func writeResponse(res http.Response, duration float64) *HttpResponse {
 	}
 }
 
-// Handle the log
-func (ctrl *Controller) Log(res http.Response, duration float64) {
-	headers := map[string][]string{}
-	for k, v := range res.Request.Header {
-		headers[k] = append(headers[k], v...)
-	}
-
-	ctrl.HttpResponse.StatusCode = res.StatusCode
-	ctrl.HttpResponse.Method = res.Request.Method
-	ctrl.HttpResponse.Time = duration
-	ctrl.HttpResponse.Headers = headers
-
-	lfp := filepath.Join(
-		".", string(filepath.Separator),
-		ctrl.Config.Outdir,
-		"optics.log",
-	)
-
-	tm := time.Now()
-	timestamp := fmt.Sprintf(
-		"%d-%02d-%02d %02d:%02d",
-		tm.Year(),
-		tm.Month(),
-		tm.Day(),
-		tm.Hour(),
-		tm.Minute(),
-	)
-
-	file, err := os.OpenFile(lfp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, PERMS)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	defer file.Close()
-
-	if _, err := file.WriteString(fmt.Sprintf(
-		"%s %s %d %s - %.2f seconds\n",
-		ctrl.Url.String(),
-		timestamp,
-		res.StatusCode,
-		strings.ToUpper(StatusCodes[res.StatusCode]),
-		duration,
-	)); err != nil {
-		log.Fatal(err.Error())
-	}
-}

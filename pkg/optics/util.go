@@ -144,7 +144,7 @@ func decode(conf string) (*Config, error) {
 	return config, nil
 }
 
-func opTime(start time.Time) float64 { return time.Since(start).Seconds() }
+func opTime(start time.Time) time.Duration  { return time.Since(start) }
 
 func logWriter(p string, data []byte) (int, error) {
 	file, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, PERMS)
@@ -158,3 +158,5 @@ func logWriter(p string, data []byte) (int, error) {
 	}
 	return n, nil
 }
+
+func timestamp(t time.Time) string { return t.Format(time.ANSIC) }

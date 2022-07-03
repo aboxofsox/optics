@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aboxofsox/optics/pkg/colors"
+	"github.com/aboxofsox/optics/pkg/logger"
 )
 
 /*
@@ -22,6 +23,8 @@ func (ctrl *Controller) Proxy(origin string, done func()) {
 	defer done()
 	var resMsg string
 	var resStatusCode string
+
+	lgr := logger.New()
 	u, err := url.Parse(origin)
 	proxy := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
@@ -60,14 +63,23 @@ func (ctrl *Controller) Proxy(origin string, done func()) {
 		return
 	}
 
+	li := &logger.LogItem{
+		Timestamp:         time.Now().Format(time.ANSIC),
+		Endpoint:          "[PROXIED]" + origin,
+		StatusCode:        res.StatusCode,
+		StatusCodeMessage: strings.ToUpper(StatusCodes[res.StatusCode]),
+		Elapsed:           since,
+	}
+	lgr.Stash(li)
+	lgr.Write("./res/api.log")
+
 	ctrl.Json(b)
-	ctrl.Log(*res, since.Seconds())
 	fmt.Printf(
-		"[PROXIED] %s: %s %s - %v\n",
+		"[PROXIED] %s: %s %s - %.2dms\n",
 		u.String(),
 		resStatusCode,
 		resMsg,
-		colors.Cyan(since),
+		since.Milliseconds(),
 	)
 
 }
