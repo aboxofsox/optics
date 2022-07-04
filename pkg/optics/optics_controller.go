@@ -7,17 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 // Create a new HTTP client controller
 func New() *Controller {
-	var envMap map[string]string
-
-	if envExists() {
-		envMap, _ = godotenv.Read()
-	}
+	env := readEnv()
 	p := cPath(".", string(filepath.Separator), "optics.toml")
 
 	file, err := os.Open(p)
@@ -28,7 +22,7 @@ func New() *Controller {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	t, err := parse(d, envMap)
+	t, err := parse(d, env)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -45,5 +39,4 @@ func New() *Controller {
 		},
 		HttpResponse: &HttpResponse{},
 	}
-
 }

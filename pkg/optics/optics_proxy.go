@@ -51,10 +51,10 @@ func (ctrl *Controller) Proxy(origin string, done func()) {
 
 	if res.StatusCode == http.StatusNotFound {
 		resStatusCode = colors.Red(res.StatusCode)
-		resMsg = colors.Red(StatusCodes[res.StatusCode])
+		resMsg = colors.Red(http.StatusText(res.StatusCode))
 	} else {
 		resStatusCode = colors.Green(res.StatusCode)
-		resMsg = colors.Green(StatusCodes[res.StatusCode])
+		resMsg = colors.Green(http.StatusText(res.StatusCode))
 	}
 
 	b, err := io.ReadAll(res.Body)
@@ -67,7 +67,7 @@ func (ctrl *Controller) Proxy(origin string, done func()) {
 		Timestamp:         time.Now().Format(time.ANSIC),
 		Endpoint:          "[PROXIED]" + origin,
 		StatusCode:        res.StatusCode,
-		StatusCodeMessage: strings.ToUpper(StatusCodes[res.StatusCode]),
+		StatusCodeMessage: strings.ToUpper(http.StatusText(res.StatusCode)),
 		Elapsed:           since,
 	}
 	lgr.Stash(li)

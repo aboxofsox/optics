@@ -126,10 +126,10 @@ func (ctrl *Controller) Get(url string, done func()) {
 
 	if res.StatusCode == http.StatusNotFound {
 		resStatusCode = colors.Red(res.StatusCode)
-		resMsg = colors.Red(StatusCodes[res.StatusCode])
+		resMsg = colors.Red(http.StatusText(res.StatusCode))
 	} else {
 		resStatusCode = colors.Green(res.StatusCode)
-		resMsg = colors.Green(StatusCodes[res.StatusCode])
+		resMsg = colors.Green(http.StatusText(res.StatusCode))
 	}
 
 	data, err := ioutil.ReadAll(res.Body)
@@ -145,7 +145,7 @@ func (ctrl *Controller) Get(url string, done func()) {
 		Timestamp:         time.Now().Format(time.ANSIC),
 		Endpoint:          url,
 		StatusCode:        res.StatusCode,
-		StatusCodeMessage: StatusCodes[res.StatusCode],
+		StatusCodeMessage: http.StatusText(res.StatusCode),
 		Elapsed:           since,
 	}
 	lgr.Stash(li)
@@ -225,7 +225,7 @@ func writeResponse(res http.Response, duration float64) *HttpResponse {
 	return &HttpResponse{
 		StatusCode:  res.StatusCode,
 		Method:      res.Request.Method,
-		Message:     StatusCodes[res.StatusCode],
+		Message:     http.StatusText(res.StatusCode),
 		ContentType: res.Header.Get("content-type"),
 		Headers:     res.Header,
 		Error:       errors.New("response invalid"),
@@ -233,4 +233,3 @@ func writeResponse(res http.Response, duration float64) *HttpResponse {
 		Time:        duration,
 	}
 }
-
